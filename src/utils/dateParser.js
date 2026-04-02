@@ -89,7 +89,10 @@ function parseDate(input) {
  */
 function formatDate(date) {
   if (!date) return 'No Expiry';
-  return moment(date).format('MMM YYYY');
+  const m = moment(date);
+  // If the day is the last day of its month, it was entered as month-only (MM/YYYY or Month YYYY)
+  const isMonthOnly = m.date() === m.daysInMonth();
+  return isMonthOnly ? m.format('MMM YYYY') : m.format('D MMM YYYY');
 }
 
 /**

@@ -134,14 +134,19 @@ async function getDailySummary(shopId) {
 /**
  * Format inventory list as WhatsApp message
  */
-function formatInventoryList(products) {
-  if (!products.length) return 'No products found in inventory.';
+function formatInventoryList(products, shopName) {
+  if (!products.length) return shopName
+    ? `📦 *${shopName}* has no products yet.`
+    : 'No products found in inventory.';
 
-  return products.map((p, i) => {
+  const header = shopName ? `📋 *Inventory — ${shopName}* (${products.length} items)\n\n` : '';
+  const lines = products.map((p, i) => {
     const expStr = p.expiryDate ? `| Exp: ${formatDate(p.expiryDate)}` : '';
     const lowStr = p.quantity <= 3 ? ' ⚠️' : '';
     return `${i + 1}. ${p.name} — ${p.quantity} units ${expStr}${lowStr}`;
   }).join('\n');
+
+  return header + lines;
 }
 
 module.exports = {

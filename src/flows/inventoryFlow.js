@@ -7,11 +7,34 @@ const User = require('../models/User');
 const Loss = require('../models/Loss');
 const { sendMessage } = require('../services/twilioService');
 const { setSession, clearSession, setTempData } = require('../state/sessionManager');
-const { getProducts, sellProduct, updateProduct, deleteProduct, formatInventoryList, getLowStockProducts } = require('../services/inventoryService');
+const { getProducts, recordSale, updateQuantity, deleteProduct, formatInventoryList } = require('../services/inventoryService');
+const Product = require('../models/Product');
+
+// Alias to match what the flow expects
+const sellProduct  = recordSale;        // (shopId, productId, unitsSold) → { product, sale, isLowStock }
+const updateProduct = async (productId, fields) => {
+  // updateQuantity only handles qty; handle other fields via direct model update
+  const update = {};
+  if (fields.quantity !== undefined) update.quantity = fields.quantity;
+  if (fields.price    !== undefined) update.price    = fields.price;
+  if (fields.expiryDate !== undefined) update.expiryDate = fields.expiryDate;
+  return Product.findByIdAndUpdate(productId, { $set: update }, { new: true });
+};
+const getLowStockProducts = async (shopId, threshold = 5) =>
+  Product.find({ shopId, isActive: true, quantity: { $lte: threshold } }).sort({ quantity: 1 });
 const { parseQuantity, parsePrice } = require('../services/nlpService');
-const { parseExpiryDate, formatDate } = require('../utils/dateParser');
-const { isYes, isNo } = require('../utils/hinglishMap');
+const { parseDate: parseExpiryDate, formatDate } = require('../utils/dateParser');
+const hinglishMap = require('../utils/hinglishMap');
+function isYes(text) {
+  const t = (hinglishMap[text.toLowerCase().trim()] || text).toLowerCase().trim();
+  return ['yes', 'ha', 'haan', 'ok', 'theek hai', 'bilkul'].includes(t);
+}
+function isNo(text) {
+  const t = (hinglishMap[text.toLowerCase().trim()] || text).toLowerCase().trim();
+  return ['no', 'nahi', 'na', 'cancel', 'mat karo'].includes(t);
+}
 const { sendMainMenu } = require('./mainMenuFlow');
+const { withNav, isBack, isHome } = require('../utils/navHelper');
 
 // ── View Inventory ────────────────────────────────────────────────────────────
 
@@ -72,6 +95,10 @@ async function handleInventoryFlow(user, messageBody, phoneNumber) {
   const tempData = user.sessionState?.tempData || {};
   const products = tempData.products || [];
 
+  // Global HOME / BACK
+  if (isHome(messageBody)) return sendMainMenu(phoneNumber);
+  if (isBack(messageBody)) return sendMainMenu(phoneNumber);
+
   if (step === 'EMPTY_MENU') {
     const choice = parseInt(messageBody.trim(), 10);
     if (choice === 1) {
@@ -125,9 +152,11 @@ async function handleInventoryFlow(user, messageBody, phoneNumber) {
     }
     const { selectedProduct } = tempData;
     const user2 = await User.findOne({ phoneNumber });
+    const shopId = user2.activeShopId;
 
     try {
-      const { newQty } = await sellProduct(selectedProduct.id, qty, phoneNumber);
+      const { product, isLowStock } = await sellProduct(shopId, selectedProduct.id, qty);
+      const newQty = product.quantity;
       await clearSession(phoneNumber);
 
       const shopName = user2.shops.find((s) => String(s.shopId) === String(user2.activeShopId))?.shopName || 'Your Shop';

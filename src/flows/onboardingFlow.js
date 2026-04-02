@@ -7,7 +7,7 @@ const User = require('../models/User');
 const Shop = require('../models/Shop');
 const { sendMessage } = require('../services/twilioService');
 const { setSession, clearSession } = require('../state/sessionManager');
-const { getMainMenu } = require('./mainMenuFlow');
+const { getMainMenuText: getMainMenu, sendMainMenu } = require('./mainMenuFlow');
 
 async function handleOnboarding(user, messageBody, phoneNumber) {
   const step = user.sessionState?.step;
