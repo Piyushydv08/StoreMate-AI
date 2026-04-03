@@ -9,6 +9,7 @@ const productSchema = new mongoose.Schema({
   },
   name: { type: String, required: true },
   brand: { type: String, default: '' },
+  description: { type: String, default: '' },
   barcode: { type: String, default: '' },
   category: { type: String, default: '' },
   quantity: { type: Number, default: 0 },

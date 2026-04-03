@@ -54,7 +54,21 @@ async function googleVisionOCR(imagePath) {
  */
 function extractInvoiceData(ocrText) {
   const lines = ocrText.split('\n').map(l => l.trim()).filter(Boolean);
-  const result = { productName: null, quantity: null, price: null, expiryRaw: null, rawLines: lines };
+  const result = {
+    productName: null,
+    brand: null,
+    description: null,
+    quantity: null,
+    price: null,
+    expiryRaw: null,
+    rawLines: lines
+  };
+
+  const isMetadataLine = (line) => (
+    /(?:invoice|bill|tax|gst|total|amount|date|address|phone|mobile|email|hsn|cgst|sgst|igst)/i.test(line)
+    || /^(?:rs|₹|\d)/i.test(line)
+    || /^\d+$/.test(line)
+  );
 
   for (const line of lines) {
     // Price patterns: Rs. 120, ₹120, MRP: 120
@@ -76,17 +90,35 @@ function extractInvoiceData(ocrText) {
     }
   }
 
+  const fullText = lines.join(' ');
+  const brandMatch = fullText.match(/(?:brand|company|manufacturer|mfg\.?\s*by)[:\s-]*([a-zA-Z][a-zA-Z0-9&.\-\s]{1,40})/i);
+  if (brandMatch) {
+    result.brand = brandMatch[1].trim();
+  }
+
   // Product name: usually first meaningful line that isn't a number/address
   for (const line of lines) {
     if (
       line.length > 3 &&
-      !/^\d+$/.test(line) &&
-      !/(?:invoice|bill|tax|gst|total|amount|date|address|phone)/i.test(line) &&
-      !/^(?:rs|₹|\d)/i.test(line)
+      !isMetadataLine(line)
     ) {
       result.productName = line;
       break;
     }
+  }
+
+  if (!result.brand && result.productName) {
+    // Heuristic fallback: first token often contains the brand on retail invoices.
+    const firstToken = result.productName.split(/\s+/)[0] || '';
+    if (firstToken.length >= 2) result.brand = firstToken;
+  }
+
+  // Pick the next meaningful line as compact description.
+  for (const line of lines) {
+    if (!result.productName || line === result.productName) continue;
+    if (line.length < 8 || isMetadataLine(line)) continue;
+    result.description = line.length > 120 ? `${line.slice(0, 117)}...` : line;
+    break;
   }
 
   return result;

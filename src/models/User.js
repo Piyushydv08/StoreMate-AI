@@ -23,9 +23,14 @@ const userSchema = new mongoose.Schema({
     ref: 'Shop',
     default: null
   },
+  preferredLanguage: {
+    type: String,
+    enum: ['en', 'hi'],
+    default: 'en'
+  },
   notificationSettings: {
     morningTime: { type: String, default: '08:00' },  // HH:MM 24h
-    eveningTime: { type: String, default: '21:00' },
+    eveningTime: { type: String, default: '20:00' },
     enabled: { type: Boolean, default: true }
   },
   sessionState: {

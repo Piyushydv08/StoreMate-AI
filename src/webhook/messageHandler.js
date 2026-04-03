@@ -48,7 +48,7 @@ router.post('/', async (req, res) => {
   try {
     const { From, Body, MediaUrl0, MediaContentType0 } = req.body;
 
-    if (!From || !Body === undefined) return;
+    if (!From || Body === undefined) return;
 
     phoneNumber = From; // e.g. "whatsapp:+919876543210"
     const messageBody = (Body || '').trim();
@@ -79,18 +79,31 @@ router.post('/', async (req, res) => {
 
     // ── Global: "help" keyword ────────────────────────────────────────────
     if (/^help$/i.test(messageBody.trim())) {
+      const language = user?.preferredLanguage || 'en';
       await sendMessage(
         phoneNumber,
-        `🆘 *StoreMate AI Help*\n\n` +
-        `Commands you can use:\n` +
-        `• Type *menu* or *home* anytime to return to the main menu\n` +
-        `• Type *back* to go to the previous step\n` +
-        `• Type *1-5* to choose options\n` +
-        `• Type *YES/NO* or *ha/nahi* to confirm\n` +
-        `• Type *SKIP* to skip optional fields\n\n` +
-        `💡 You can also just type naturally:\n` +
-        `   _"add product", "check inventory", "low stock", "today's summary"_\n\n` +
-        `🌐 Hinglish supported!\n\nNeed help? Reply *menu* to start over.`
+        language === 'hi'
+          ? `🆘 *StoreMate AI सहायता*\n\n` +
+            `आप ये कमांड्स इस्तेमाल कर सकते हैं:\n` +
+            `• कभी भी *menu* या *home* लिखकर मुख्य मेन्यू पर जाएं\n` +
+            `• पिछला स्टेप जाने के लिए *back* लिखें\n` +
+            `• विकल्प चुनने के लिए *1-5* लिखें\n` +
+            `• पुष्टि के लिए *YES/NO* या *ha/nahi* लिखें\n` +
+            `• वैकल्पिक फील्ड छोड़ने के लिए *SKIP* लिखें\n\n` +
+            `💡 आप सामान्य भाषा में भी लिख सकते हैं:\n` +
+            `   _"प्रोडक्ट जोड़ो", "इन्वेंटरी दिखाओ", "लो स्टॉक", "आज का सारांश"_\n` +
+            `   _(या कमांड शब्द: "add product", "inventory")_\n\n` +
+            `🌐 Hinglish सपोर्टेड है!\n\nमदद चाहिए? *menu* लिखकर फिर से शुरू करें।`
+          : `🆘 *StoreMate AI Help*\n\n` +
+            `Commands you can use:\n` +
+            `• Type *menu* or *home* anytime to return to the main menu\n` +
+            `• Type *back* to go to the previous step\n` +
+            `• Type *1-5* to choose options\n` +
+            `• Type *YES/NO* or *ha/nahi* to confirm\n` +
+            `• Type *SKIP* to skip optional fields\n\n` +
+            `💡 You can also just type naturally:\n` +
+            `   _"add product", "check inventory", "low stock", "today's summary"_\n\n` +
+            `🌐 Hinglish supported!\n\nNeed help? Reply *menu* to start over.`
       );
       return;
     }
@@ -195,18 +208,29 @@ async function handleMainMenuSelection(user, messageBody, mediaUrl, mediaType, p
     case 'SETTINGS':       return startSettings(phoneNumber);
     case 'MAIN_MENU':      return sendMainMenu(phoneNumber);
     case 'HELP':
+      {
+        const language = user?.preferredLanguage || 'en';
       await sendMessage(
         phoneNumber,
-        `🆘 *StoreMate AI Help*\n\nCommands:\n• *menu* / *home* — main menu\n• *back* — previous step\n• *1-5* — choose options\n• *YES/NO* — confirm\n• *SKIP* — skip fields\n\n💡 Or just type naturally: _"add product"_, _"check stock"_, _"today's sales"_`
+        language === 'hi'
+          ? `🆘 *StoreMate AI सहायता*\n\nकमांड्स:\n• *menu* / *home* — मुख्य मेन्यू\n• *back* — पिछला स्टेप\n• *1-5* — विकल्प चुनें\n• *YES/NO* — पुष्टि करें\n• *SKIP* — फील्ड छोड़ें\n\n💡 या सामान्य भाषा में लिखें: _"प्रोडक्ट जोड़ो"_, _"स्टॉक दिखाओ"_, _"आज की बिक्री"_\n_(कमांड शब्द भी चलेंगे: "add product", "inventory")_`
+          : `🆘 *StoreMate AI Help*\n\nCommands:\n• *menu* / *home* — main menu\n• *back* — previous step\n• *1-5* — choose options\n• *YES/NO* — confirm\n• *SKIP* — skip fields\n\n💡 Or just type naturally: _"add product"_, _"check stock"_, _"today's sales"_`
       );
       return;
+      }
     default:
       // Truly unknown — gently guide back to menu
+      {
+      const language = user?.preferredLanguage || 'en';
       await sendMessage(
         phoneNumber,
-        `🤔 I didn't quite understand that.\n\n` +
-        `You can type:\n• *menu* to see options\n• *add product* to add a product\n• *inventory* to view stock\n• *help* for more commands`
+        language === 'hi'
+          ? `🤔 मैं इसे पूरी तरह समझ नहीं पाया।\n\n` +
+            `आप ये लिख सकते हैं:\n• विकल्प देखने के लिए *menu*\n• प्रोडक्ट जोड़ने के लिए *प्रोडक्ट जोड़ो* (या *add product*)\n• स्टॉक देखने के लिए *इन्वेंटरी दिखाओ* (या *inventory*)\n• और कमांड्स के लिए *help*`
+          : `🤔 I didn't quite understand that.\n\n` +
+            `You can type:\n• *menu* to see options\n• *add product* to add a product\n• *inventory* to view stock\n• *help* for more commands`
       );
+      }
   }
 }
 

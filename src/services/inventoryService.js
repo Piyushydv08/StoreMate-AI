@@ -8,11 +8,37 @@ const { formatDate, daysUntil } = require('../utils/dateParser');
  * Add a new product to a shop
  */
 async function addProduct(shopId, data) {
+  const barcode = (data.barcode || '').trim();
+  const normalisedName = (data.name || '').trim();
+
+  // Keep barcode entries unique per shop: update existing stock instead of creating duplicates.
+  if (barcode || normalisedName) {
+    const duplicateQuery = { shopId, isActive: true };
+    if (barcode) {
+      duplicateQuery.barcode = barcode;
+    } else {
+      duplicateQuery.name = normalisedName;
+    }
+
+    const existing = await Product.findOne(duplicateQuery);
+    if (existing) {
+      existing.quantity = (existing.quantity || 0) + (data.quantity || 0);
+      existing.price = data.price || existing.price || 0;
+      existing.expiryDate = data.expiryDate || existing.expiryDate || null;
+      existing.brand = (data.brand || existing.brand || '').trim();
+      existing.category = (data.category || existing.category || '').trim();
+      existing.description = (data.description || existing.description || '').trim();
+      await existing.save();
+      return existing;
+    }
+  }
+
   const product = new Product({
     shopId,
-    name: data.name,
+    name: normalisedName,
     brand: data.brand || '',
-    barcode: data.barcode || '',
+    description: data.description || '',
+    barcode,
     category: data.category || '',
     quantity: data.quantity || 0,
     price: data.price || 0,
@@ -143,7 +169,11 @@ function formatInventoryList(products, shopName) {
   const lines = products.map((p, i) => {
     const expStr = p.expiryDate ? `| Exp: ${formatDate(p.expiryDate)}` : '';
     const lowStr = p.quantity <= 3 ? ' ⚠️' : '';
-    return `${i + 1}. ${p.name} — ${p.quantity} units ${expStr}${lowStr}`;
+    const description = (p.description || '').replace(/\s+/g, ' ').trim();
+    const shortDescription = description
+      ? `\n   📝 ${description.length > 90 ? `${description.slice(0, 87)}...` : description}`
+      : '';
+    return `${i + 1}. ${p.name} — ${p.quantity} units ${expStr}${lowStr}${shortDescription}`;
   }).join('\n');
 
   return header + lines;
